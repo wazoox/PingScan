@@ -1,0 +1,68 @@
+<html>
+<head>
+<title>Scan IP</title>
+</head>
+<body>
+<:
+use strict;
+use warnings;
+use Data::Dumper;
+our %get;
+
+my $ouifile = '/usr/share/oui.txt';
+
+:>
+<form action="pingscan.plp">
+<select id="range" name="range">
+<: 
+foreach my $i (1 .. 5) {
+	print qq(<option value="$i");
+	print ' selected ' if $get{range} == $i ;
+	print qq(>10.0.$i.0/24</option>\n);
+}
+:>
+</select>
+<input id="submit" name="submit" value="submit" type="submit">
+</form>
+<table width="80%">
+<tr bgcolor="cccccc"><th>Machine</th><th>IP</th><th>MAC</th><th>Vendor</th></tr>
+<:
+
+my $nmap = '/usr/bin/nmap';
+my $addr = '10.0.' . $get{range} . '.0/24';
+
+my @exec=`$nmap -sP $addr`;
+chomp @exec;
+
+my @arp=`arp -a`;
+my %macaddr;
+my %vendor;
+
+foreach my $arpline (@arp) {
+	if ( $arpline =~ m/\((\d+\.\d+\.\d+\.\d+)\) at (\w+:\w+:\w+:\w+:\w+:\w+)/ ) {
+		my ($ip, $mac) = ($1, $2);
+		$macaddr{$ip} = $mac;
+		
+		my $oui = uc( substr ($macaddr{$1}, 0, 8));
+		$oui =~ s/://g;
+		# special case: QEMU/KVM
+		if ( $oui == '525400' ) {
+			$vendor{$ip} = 'QEMU virtual NIC';
+			next;
+		}
+		
+		$vendor{$ip} = `grep $oui $ouifile`;
+		$vendor{$ip} =~ s/$oui\s+\(base 16\)\s+//;
+		# print "## $oui # $vendor{$ip}##";
+
+	}
+}
+
+foreach my $line (@exec) {
+	my ( $name, $ip ) = ( $line =~ m/^Nmap scan report for ([\w+\.]+) \((\d+\.\d+\.\d+\.\d+)\)/);
+	print "<tr><td> $name </td><td> $ip </td><td>$macaddr{$ip}</td><td>$vendor{$ip}</td></tr>\n" if $ip;
+}
+
+:>
+</table>
+</html>
