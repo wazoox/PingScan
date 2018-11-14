@@ -6,27 +6,14 @@
 <:
 use strict;
 use warnings;
+
 use Data::Dumper;
+use MIME::Base64;
+$Data::Dumper::Varname = 'oldscan';
+
 our %get;
 
 my $ouifile = '/usr/share/oui.txt';
-
-:>
-<form action="pingscan.plp">
-<select id="range" name="range">
-<: 
-foreach my $i (1 .. 5) {
-	print qq(<option value="$i");
-	print ' selected ' if $get{range} == $i ;
-	print qq(>10.0.$i.0/24</option>\n);
-}
-:>
-</select>
-<input id="submit" name="submit" value="submit" type="submit">
-</form>
-<table width="80%">
-<tr bgcolor="cccccc"><th>Machine</th><th>IP</th><th>MAC</th><th>Vendor</th></tr>
-<:
 
 my $nmap = '/usr/bin/nmap';
 my $addr = '10.0.' . $get{range} . '.0/24';
@@ -58,9 +45,59 @@ foreach my $arpline (@arp) {
 	}
 }
 
+my %mactoip;
 foreach my $line (@exec) {
 	my ( $name, $ip ) = ( $line =~ m/^Nmap scan report for ([\w+\.]+) \((\d+\.\d+\.\d+\.\d+)\)/);
-	print "<tr><td> $name </td><td> $ip </td><td>$macaddr{$ip}</td><td>$vendor{$ip}</td></tr>\n" if $ip;
+	$mactoip{$macaddr{$ip}} = { "name" => $name, "ip" => $ip };
+}
+
+my $oldscan1;
+if (0 < length $get{cache}) {	
+	eval decode_base64($get{cache});
+}
+:>
+<form action="pingscan.plp">
+<select id="range" name="range">
+<: 
+foreach my $i (1 .. 5) {
+	print qq(<option value="$i");
+	print ' selected ' if $get{range} == $i;
+	print qq(>10.0.$i.0/24</option>\n);
+}
+:>
+</select>
+<input id="submit" name="submit" value="submit" type="submit">
+<input name="cache" type="hidden" value="<: print encode_base64(Dumper \%mactoip); :>">
+</form>
+<table width="80%">
+<tr bgcolor="cccccc"><th>Machine</th><th>IP</th><th>MAC</th><th>Vendor</th></tr>
+<:
+
+foreach my $mac (sort keys %mactoip) {
+	next if (defined $oldscan1->{$mac});
+
+	my $ip = $mactoip{$mac}{ip};
+	my $macip = $macaddr{$ip};
+	my $vendorip = $vendor{$ip};
+	print qq(<tr bgcolor="GreenYellow"><td> ${mactoip{$mac}{name}} </td><td>$ip</td><td> $macip </td><td> $vendorip </td></tr>\n);
+}
+
+foreach my $mac (sort keys %mactoip) {
+	next if (not defined $oldscan1->{$mac});
+
+	my $ip = $mactoip{$mac}{ip};
+	my $macip = $macaddr{$ip};
+	my $vendorip = $vendor{$ip};
+	print "<tr><td> ${mactoip{$mac}{name}} </td><td>$ip</td><td> $macip </td><td> $vendorip </td></tr>\n";
+}
+
+foreach my $mac (sort keys %$oldscan1) {
+	next if (defined $mactoip{$mac});
+
+	my $ip = $oldscan1->{$mac}{ip};
+	my $macip = $macaddr{$ip};
+	my $vendorip = $vendor{$ip};
+	print qq(<tr bgcolor="OrangeRed"><td> $oldscan1->{$mac}{name} </td><td>$ip</td><td> $macip </td><td> $vendorip </td></tr>\n);
 }
 
 :>
