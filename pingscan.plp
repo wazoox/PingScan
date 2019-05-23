@@ -33,10 +33,10 @@ foreach my $arpline (@arp) {
 		my $oui = uc( substr ($macaddr{$1}, 0, 8));
 		$oui =~ s/://g;
 		# special cases: QEMU/KVM, Gigabyte
-		if ( $oui == '525400' ) {
+		if ( $oui eq '525400' ) {
 			$vendor{$ip} = 'QEMU virtual NIC';
 			next;
-		} elsif ( $oui == 'E0D55E') {
+		} elsif ( $oui eq 'E0D55E') {
 			$vendor{$ip} = 'Gigabyte';
 			next;
 		}
