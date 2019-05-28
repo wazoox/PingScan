@@ -50,7 +50,8 @@ foreach my $arpline (@arp) {
 
 my %mactoip;
 foreach my $line (@exec) {
-	my ( $name, $ip ) = ( $line =~ m/^Nmap scan report for ([\w+\.]+) \((\d+\.\d+\.\d+\.\d+)\)/);
+	my ( $name, $ip ) = ( $line =~ m/^Nmap scan report for ([\w+\.\-]+)(?: \((\d+\.\d+\.\d+\.\d+)\))?/);
+	$ip = $name if ($ip eq '' );
 	$mactoip{$macaddr{$ip}} = { "name" => $name, "ip" => $ip } if $ip;
 }
 
